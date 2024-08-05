@@ -1,0 +1,739 @@
+
+```{r}
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(harmony)
+library(scCustomize)
+library(tibble)
+library(patchwork)
+library(cowplot)
+library(SeuratDisk)
+```
+
+
+```{r}
+
+Z_17 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/17_results/", filename ="filtered_feature_bc_matrix.h5", slice = "SCZ_17" )
+
+Z_38 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/38_results/", filename ="filtered_feature_bc_matrix.h5", slice = "SCZ_38" )
+
+C_40 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/40_results/", filename ="filtered_feature_bc_matrix.h5", slice = "CON_40" )
+
+C_42 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/42_results/", filename ="filtered_feature_bc_matrix.h5", slice = "CON_42" )
+
+C_43 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/43_results/", filename ="filtered_feature_bc_matrix.h5", slice = "CON_43" )
+
+Z_47 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/47_results/", filename ="filtered_feature_bc_matrix.h5", slice = "SCZ_47" )
+
+Z_19 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/49_results/", filename ="filtered_feature_bc_matrix.h5", slice = "SCZ_19" )
+
+C_59 <-Load10X_Spatial(data.dir = "~/Analysis/Kubo/Visium_Kubo/Old_Visium/59_results/", filename ="filtered_feature_bc_matrix.h5", slice = "CON_59" )
+
+
+
+C_59$Donor <-"CON_59"
+C_40$Donor <- "CON_40"
+C_42$Donor <-"CON_42"
+C_43$Donor <-"CON_43"
+
+
+Z_17$Donor <-"SCZ_17"
+Z_38$Donor <- "SCZ_38"
+Z_47$Donor <-"SCZ_47"
+Z_19$Donor <-"SCZ_19"
+
+
+C_59$State <-"CON"
+C_40$State <- "CON"
+C_42$State <-"CON"
+C_43$State <-"CON"
+
+
+Z_17$State <-"SCZ"
+Z_38$State <- "SCZ"
+Z_47$State <-"SCZ"
+Z_19$State <-"SCZ"
+
+```
+
+```{r}
+
+SObjects <- ls(pattern = "?_")
+
+# Create an empty list
+ifnb.list <- list()
+
+# Iterate over each data frame name
+for (df_name in SObjects) {
+  # Get the full data frame name
+  full_df_name <- get(df_name)
+  
+  # SCZd the data frame to the list
+  ifnb.list[[df_name]] <- full_df_name
+}
+
+
+# Loop over each Seurat object in the list
+for (i in 1:length(ifnb.list)) {
+  seurat_obj <- ifnb.list[[i]]
+  
+  # Get the name of the Seurat object
+  obj_name <- names(ifnb.list)[i]
+  
+  # Perform the operations on the Seurat object
+  seurat_obj <- PercentageFeatureSet(seurat_obj, "^MT-", col.name = "percent_mito")
+  seurat_obj <- PercentageFeatureSet(seurat_obj, "^HB.*", col.name = "percent_hb")
+  Idents(seurat_obj) <- seurat_obj$Donor
+  
+  # Assign the modified Seurat object back to the list
+  ifnb.list[[i]] <- seurat_obj
+  
+  VlnPlot(seurat_obj, features = c("nCount_Spatial", "nFeature_Spatial", "percent_mito", "percent_hb"), pt.size = 0.1, ncol = 1) + NoLegend()
+  ggsave(paste0(obj_name, "_Violin_features.png"), width = 4.5, height = 12)
+  
+  SpatialFeaturePlot(seurat_obj, features = c("nCount_Spatial", "nFeature_Spatial", "percent_mito"))
+  ggsave(paste0(obj_name, "_Spatial_features.png"), width = 18, height = 13)
+  
+  seurat_obj_fil <- seurat_obj[, seurat_obj$nFeature_Spatial > 350 &
+                               seurat_obj$nFeature_Spatial < 5000 &
+                               seurat_obj$percent_mito < 40 &
+                               seurat_obj$percent_hb < 20]
+  
+  # Assign the filtered Seurat object back to the list
+  ifnb.list[[i]] <- seurat_obj_fil
+  
+  VlnPlot(seurat_obj_fil, features = c("nCount_Spatial", "nFeature_Spatial", "percent_mito", "percent_hb"), pt.size = 0.1, ncol = 1) + NoLegend()
+  ggsave(paste0(obj_name, "_fil_Violin_featuresfil.png"), width = 4.5, height = 12)
+  
+  SpatialFeaturePlot(seurat_obj_fil, features = c("nCount_Spatial", "nFeature_Spatial", "percent_mito"))
+  ggsave(paste0(obj_name, "_fil_Spatial_featuresfil.png"), width = 18, height = 13)
+}
+
+
+processed_seurat_list <- lapply(ifnb.list, SCTransform,assay = "Spatial",vst.flavor = "v2" )
+
+brain.features <- SelectIntegrationFeatures(object.list = processed_seurat_list, nfeatures = 3500)
+
+ Visium.Kubo_re_mapped_merge_fil <- Merge_Seurat_List(processed_seurat_list,
+  merge.data = TRUE,
+  project = "Kubo", add.cell.ids = SObjects)
+ VariableFeatures(Visium.Kubo_re_mapped_merge_fil) <- brain.features
+
+ 
+ Visium.Kubo_re_mapped_merge_fil <-Visium.Kubo_re_mapped_merge_fil%>%  RunPCA(assay ="SCT", verbose = FALSE) %>% FindNeighbors(reduction = "pca", dims = 1:30)%>% FindClusters (resolution=0.3) %>% RunUMAP (dims = 1:30 )
+
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, group.by = "seurat_clusters", label.size = 0) 
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_filteredfinal.png", width =6 , height = 4)
+
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, group.by = "Donor")
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_gropubyDonorfinal.png", width =6 , height = 4)
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, group.by = "Donor", split.by = "State" )
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_gropubyDonor.splitbystatefinal.png", width =8 , height = 4)
+
+```
+
+```{r}
+
+#Visium.Kubo_re_mapped_merge_fil$Donor <- factor(Visium.Kubo_re_mapped_merge_fil$Donor, levels= c("CON_574", "CON_616", "CON_741", "SCZ_580", "SCZ_637", "SCZ_709"))
+
+
+
+library(patchwork)
+Visium.Kubo_re_mapped_merge_fil <- RunHarmony(Visium.Kubo_re_mapped_merge_fil, c("Donor"), assay.use = "SCT")
+
+
+
+
+Visium.Kubo_re_mapped_merge_fil <- Visium.Kubo_re_mapped_merge_fil %>% RunUMAP(reduction = "harmony", dims = 1:20) %>% 
+  FindNeighbors(reduction = "harmony", dims = 1:20 ) %>% 
+  FindClusters(resolution = 0.3) %>% 
+  identity()
+
+DefaultAssay(Visium.Kubo_re_mapped_merge_fil) <- "SCT"
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, group.by = "seurat_clusters",  label.size = 0, split.by = "State") 
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_filtered_harmonyfinal.png", width =6 , height = 4)
+
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, split.by = "State")
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_gropubyDonor_harmonyfinal.png", width =10 , height = 4)
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = TRUE, group.by = "Donor", split.by = "State" )
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_gropubyDonor.splitbystate_harmonyfinal.png", width =8 , height = 4)
+
+DimPlot(Visium.Kubo_re_mapped_merge_fil, reduction = "umap", label = FALSE, split.by = "Donor", group.by = "SCT_snn_res.0.3", ncol = 4, cols = colors ) + ggtitle("") &NoAxes()
+ggsave("UMAP_Visium.Kubo_re_mapped_merge_fil_gropubyclusters.splitbyDonor_harmonyfinal.png", width =8 , height = 5)
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$seurat_clusters
+
+A<-SpatialDimPlot(Visium.Kubo_re_mapped_merge_fil,  label = TRUE, label.size = 4, combine = FALSE , pt.size.factor = 1.8, crop = TRUE, images = c("CON_59", "CON_40", "CON_42", "CON_43", "SCZ_17", "SCZ_38", "SCZ_47", "SCZ_19"))
+
+colors <- c("#1f77b4","#edb879","#00b33c", "#800000", "#1cb6a8","#bcbd22", "#ff7f00", "#8c564b" ,"#990033" , "#e9e93a", "#e4e4a4")
+
+
+fix.sc <-scale_fill_manual(values = colors)
+
+p2 <- lapply(A, function (x) x + fix.sc + ggtitle("")&NoLegend())
+
+p2
+wrap_plots(p2, ncol = 4)
+
+ggsave("Visium.Kubo_re_mapped_merge_fil_harmonyfinal.png", width = 14, height = 7)
+
+
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$seurat_clusters
+#Given a merged object with multiple SCT models, this function uses minimum of the median UMI (calculated using the raw UMI counts) of individual objects to reverse the individual SCT regression model using minimum of median UMI as the sequencing depth covariate. The counts slot of the SCT assay is replaced with recorrected counts and the data slot is replaced with log1p of recorrected counts.
+Visium.Kubo_re_mapped_merge_fil <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil)
+
+Visium.Kubo_re_mapped_merge_fil_markers <- FindAllMarkers(Visium.Kubo_re_mapped_merge_fil, only.pos = TRUE, min.pct = 0.1, logfc.threshold = 0.25)
+
+Visium.Kubo_re_mapped_merge_fil_markers_p10 <-Visium.Kubo_re_mapped_merge_fil_markers %>%
+    group_by(cluster) %>%filter( !grepl('MT-',gene))%>%
+    slice_min(n = 200, order_by = p_val )
+
+
+Visium.Kubo_re_mapped_merge_fil_markers_top10 <-Visium.Kubo_re_mapped_merge_fil_markers %>%
+    group_by(cluster) %>%filter( !grepl('MT-',gene))%>%
+    slice_max(n = 5, order_by = avg_log2FC)
+
+
+
+top10<-Visium.Kubo_re_mapped_merge_fil_markers_top10[!duplicated(Visium.Kubo_re_mapped_merge_fil_markers_top10$gene), ]
+
+Idents(Visium.Kubo_re_mapped_merge_fil)<- Visium.Kubo_re_mapped_merge_fil$seurat_clusters
+
+png("DEG_Layers_clusters.png",width=700,height=750, res = 150)
+
+Clustered_DotPlot(seurat_object = Visium.Kubo_re_mapped_merge_fil, features =top10$gene,  assay = "SCT" )
+
+dev.off()
+
+saveRDS(Visium.Kubo_re_mapped_merge_fil, file = "Visium.Kubo_re_mapped_merge_fil" )
+
+
+
+
+```
+
+#here wait and assess the cluster numbering
+
+```{r eval=FALSE, include=FALSE}
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$SCT_snn_res.0.3
+Visium.Kubo_re_mapped_merge_fil <- RenameIdents(object = Visium.Kubo_re_mapped_merge_fil, "0" = "L5/6", "1" = "WM", "2" = "WM", "3"= "L2/3", "4"=  "VAC", "5" ="L1", "6" ="L5/6", "7"="Border", "8"="MAC")
+
+Visium.Kubo_re_mapped_merge_fil$Regions <- Idents(Visium.Kubo_re_mapped_merge_fil)
+A<-SpatialDimPlot(Visium.Kubo_re_mapped_merge_fil,  repel  = TRUE, label = TRUE, label.size = 4, combine = FALSE , pt.size.factor = 1.9, crop = TRUE,images =  c("CON_59", "CON_40", "CON_42", "CON_43", "SCZ_17", "SCZ_38", "SCZ_47", "SCZ_19"))
+
+
+
+
+
+
+fix.sc <-scale_fill_manual(values = colors)
+
+p2 <- lapply(A, function (x) x + fix.sc + ggtitle("")&NoLegend() ) 
+
+p2
+wrap_plots(p2, ncol = 4)
+
+
+Visium.Kubo_re_mapped_merge_fil$State <- factor(Visium.Kubo_re_mapped_merge_fil$State, levels = c("CON", "SCZ"))
+
+
+ggsave("Visium.Kubo_re_mapped_merge_fil_harmonyfinal_layers.png", width = 14, height = 7)
+
+A<-SpatialDimPlot(Visium.Kubo_re_mapped_merge_fil,  repel  = TRUE, label = TRUE, label.size = 4, combine = FALSE , pt.size.factor = 1.9, crop = TRUE,images =  c("CON_42","CON_43",  "SCZ_19","SCZ_47"))
+
+fix.sc <-scale_fill_manual(values = colors)
+
+p2 <- lapply(A, function (x) x + fix.sc + ggtitle("")&NoLegend() ) 
+
+p2
+wrap_plots(p2, ncol = 2)
+
+ggsave("Visium.Kubo_re_mapped_merge_fil_harmonyfinal_layers_fig1.png", width = 7, height = 7)
+
+
+A<-DimPlot_scCustom(seurat_object = Visium.Kubo_re_mapped_merge_fil, reduction = "umap",figure_plot = TRUE, label = FALSE,num_columns = 1,  split.by  = "State", colors_use  = colors, split_seurat = TRUE)+ labs(title = "")+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))&NoAxes()
+
+A
+
+ggsave("SCZ_Visium.Kubo_re_mapped_merge_fil_harmony_Fig_1_UMAP.eps", width = 3.5, height = 5)
+ggsave("SCZ_Visium.Kubo_re_mapped_merge_fil_harmony_Fig_1_UMAP.png", width = 3.5, height = 5)
+
+
+
+
+
+B <-Clustered_DotPlot(seurat_object = Visium.Kubo_re_mapped_merge_fil, features =top10$gene,  assay = "SCT" )
+png("DEG_Layers_allgenes.png",width=700,height=750, res = 150)
+B
+dev.off()
+
+
+```
+
+```{r}
+
+library(annotables)
+Visium.Kubo_re_mapped_merge_fil_markersII<- Visium.Kubo_re_mapped_merge_fil_markers %>% rename( "symbol" = "gene")
+Visium.Kubo_re_mapped_merge_fil_markersII<- Visium.Kubo_re_mapped_merge_fil_markersII%>%
+  left_join(x = Visium.Kubo_re_mapped_merge_fil_markersII, y = grch38[,c( "symbol", "biotype", "description", "ensgene")], by = "symbol")
+
+
+
+Visium.Kubo_re_mapped_merge_fil_markers_RNAtype<-Visium.Kubo_re_mapped_merge_fil_markersII
+Visium.Kubo_re_mapped_merge_fil_markers_RNAtype[Visium.Kubo_re_mapped_merge_fil_markers_RNAtype==""] <- NA
+Visium.Kubo_re_mapped_merge_fil_markers_RNAtype <- Visium.Kubo_re_mapped_merge_fil_markers_RNAtype[complete.cases(Visium.Kubo_re_mapped_merge_fil_markers_RNAtype), ]
+
+
+
+Visium.Kubo_re_mapped_merge_fil_markers_p10_lncRNA <-Visium.Kubo_re_mapped_merge_fil_markers_RNAtype %>% group_by(cluster)%>%
+  filter(biotype == "lncRNA")%>%filter(!grepl("MT-", symbol))
+  slice_max(n = 5, order_by = avg_log2FC)
+
+
+top10_lncRNA_MICRO<-unique(Visium.Kubo_re_mapped_merge_fil_markers_p10_lncRNA$symbol)
+
+
+A<-Clustered_DotPlot(seurat_object = Visium.Kubo_re_mapped_merge_fil, features = top10_lncRNA_MICRO, group.by = "Regions", colors_use_idents = DiscretePalette_scCustomize(num_colors = 40, palette = "ditto_seq" ))
+
+#5.75x5.45 inches portray
+
+png("DEG_Layers_lncRNAs.png",width=850,height=900, res = 150)
+A
+dev.off()
+
+
+
+Visium.Kubo_re_mapped_merge_fil_markers_p10_butlncRNA <-Visium.Kubo_re_mapped_merge_fil_markers_RNAtype %>% group_by(cluster)%>%
+  filter (!biotype == "lncRNA")%>% filter(!grepl("MT-", symbol))%>%
+  slice_max(n = 5, order_by = avg_log2FC)
+
+
+top10_butlncRNA_MICRO<-unique(Visium.Kubo_re_mapped_merge_fil_markers_p10_butlncRNA$symbol)
+
+
+A<-Clustered_DotPlot(seurat_object = Visium.Kubo_re_mapped_merge_fil, features = top10_butlncRNA_MICRO, group.by = "Regions", colors_use_idents = DiscretePalette_scCustomize(num_colors = 40, palette = "ditto_seq" ))
+
+#5.75x5.45 inches portray
+png("DEG_Layers_only_coding.png",width=850,height=900, res = 150)
+A
+dev.off()
+
+```
+
+
+
+
+```{r}
+#Differential gene expression with volcano plots
+#DEG analysis by layers
+#DGE analysis simple SCZ vs non SCZ
+
+library(ggplot2)
+library(ggrepel)
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$Regions
+
+
+
+Visium.Kubo_re_mapped_merge_fil_L1<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "L1")
+Idents(Visium.Kubo_re_mapped_merge_fil_L1) <- Visium.Kubo_re_mapped_merge_fil_L1$State
+Visium.Kubo_re_mapped_merge_fil_L1 <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_L1)
+DGE <-Visium.Kubo_re_mapped_merge_fil_L1
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_L1@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_L1@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_L1<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON", assay ="SCT", logfc.threshold = 0, min.pct = 0.1  )
+
+DEG_10x.big_fil_L1<- as.data.frame(DEG_10x.big_fil_L1)
+DEG_10x.big_fil_L1<- DEG_10x.big_fil_L1%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_L1$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_L1$color[DEG_10x.big_fil_L1$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_L1$color[DEG_10x.big_fil_L1$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_L1$color[abs(DEG_10x.big_fil_L1$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_L1$color <- factor(DEG_10x.big_fil_L1$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_L1, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "L1 DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_L1, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+ggsave("L1_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("L1_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$Regions
+
+Visium.Kubo_re_mapped_merge_fil_L2_3<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "L2/3")
+Idents(Visium.Kubo_re_mapped_merge_fil_L2_3) <- Visium.Kubo_re_mapped_merge_fil_L2_3$State
+Visium.Kubo_re_mapped_merge_fil_L2_3 <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_L2_3)
+DGE <-Visium.Kubo_re_mapped_merge_fil_L2_3
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_L2_3@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_L2_3@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_L2_3<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON", assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_L2_3<- as.data.frame(DEG_10x.big_fil_L2_3)
+DEG_10x.big_fil_L2_3<- DEG_10x.big_fil_L2_3%>%rownames_to_column(var = "Genes")
+DEG_10x.big_fil_L2_3$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_L2_3$color[DEG_10x.big_fil_L2_3$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_L2_3$color[DEG_10x.big_fil_L2_3$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_L2_3$color[abs(DEG_10x.big_fil_L2_3$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_L2_3$color <- factor(DEG_10x.big_fil_L2_3$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_L2_3, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "L2/3 DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_L2_3, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("L2_3_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("L2_3_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+
+
+
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$Regions
+
+Visium.Kubo_re_mapped_merge_fil_L5_6<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "L5/6")
+Idents(Visium.Kubo_re_mapped_merge_fil_L5_6) <- Visium.Kubo_re_mapped_merge_fil_L5_6$State
+Visium.Kubo_re_mapped_merge_fil_L5_6 <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_L5_6)
+
+DGE <-Visium.Kubo_re_mapped_merge_fil_L5_6
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_L5_6@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_L5_6@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+DEG_10x.big_fil_L5_6<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON",  assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_L5_6<- as.data.frame(DEG_10x.big_fil_L5_6)
+DEG_10x.big_fil_L5_6<- DEG_10x.big_fil_L5_6%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_L5_6$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_L5_6$color[DEG_10x.big_fil_L5_6$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_L5_6$color[DEG_10x.big_fil_L5_6$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_L5_6$color[abs(DEG_10x.big_fil_L5_6$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_L5_6$color <- factor(DEG_10x.big_fil_L5_6$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_L5_6, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "L5/6 DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_L5_6, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+
+ggsave("L5_6_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("L5_6_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+
+
+
+
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$Regions
+
+Visium.Kubo_re_mapped_merge_fil_WM<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "WM")
+Idents(Visium.Kubo_re_mapped_merge_fil_WM) <- Visium.Kubo_re_mapped_merge_fil_WM$State
+Visium.Kubo_re_mapped_merge_fil_WM <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_WM)
+DGE <-Visium.Kubo_re_mapped_merge_fil_WM
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_WM@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_WM@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+DEG_10x.big_fil_WM<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON",   assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_WM<- as.data.frame(DEG_10x.big_fil_WM)
+DEG_10x.big_fil_WM<- DEG_10x.big_fil_WM%>%rownames_to_column(var = "Genes")
+
+
+DEG_10x.big_fil_WM$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_WM$color[DEG_10x.big_fil_WM$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_WM$color[DEG_10x.big_fil_WM$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_WM$color[abs(DEG_10x.big_fil_WM$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_WM$color <- factor(DEG_10x.big_fil_WM$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_WM, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "WM SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_WM, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+ggsave("WM_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("WM_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+Idents(Visium.Kubo_re_mapped_merge_fil) <- Visium.Kubo_re_mapped_merge_fil$Regions
+
+Visium.Kubo_re_mapped_merge_fil_VAC<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "VAC")
+Idents(Visium.Kubo_re_mapped_merge_fil_VAC) <- Visium.Kubo_re_mapped_merge_fil_VAC$State
+Visium.Kubo_re_mapped_merge_fil_VAC <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_VAC)
+
+DGE <-Visium.Kubo_re_mapped_merge_fil_VAC
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_VAC@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_VAC@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+DEG_10x.big_fil_VAC<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON",   assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_VAC<- as.data.frame(DEG_10x.big_fil_VAC)
+DEG_10x.big_fil_VAC<- DEG_10x.big_fil_VAC%>%rownames_to_column(var = "Genes")
+DEG_10x.big_fil_VAC$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_VAC$color[DEG_10x.big_fil_VAC$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_VAC$color[DEG_10x.big_fil_VAC$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_VAC$color[abs(DEG_10x.big_fil_VAC$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_VAC$color <- factor(DEG_10x.big_fil_VAC$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_VAC, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "VAC DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_VAC, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("VAC_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("VAC_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+
+
+
+
+Visium.Kubo_re_mapped_merge_fil_MAC<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "MAC")
+Idents(Visium.Kubo_re_mapped_merge_fil_MAC) <- Visium.Kubo_re_mapped_merge_fil_MAC$State
+Visium.Kubo_re_mapped_merge_fil_MAC <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_MAC)
+
+DGE <-Visium.Kubo_re_mapped_merge_fil_MAC
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_MAC@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_MAC@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+DEG_10x.big_fil_MAC<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON", latent.vars = c( "nCount_Spatial"),  assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_MAC<- as.data.frame(DEG_10x.big_fil_MAC)
+DEG_10x.big_fil_MAC<- DEG_10x.big_fil_MAC%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_MAC$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_MAC$color[DEG_10x.big_fil_MAC$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_MAC$color[DEG_10x.big_fil_MAC$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_MAC$color[abs(DEG_10x.big_fil_MAC$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_MAC$color <- factor(DEG_10x.big_fil_MAC$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_MAC, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "MAC DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_MAC, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("MAC_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("MAC_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+
+
+Visium.Kubo_re_mapped_merge_fil_Border<-subset(Visium.Kubo_re_mapped_merge_fil, idents = "Border")
+Idents(Visium.Kubo_re_mapped_merge_fil_Border) <- Visium.Kubo_re_mapped_merge_fil_Border$State
+Visium.Kubo_re_mapped_merge_fil_Border <- PrepSCTFindMarkers(object = Visium.Kubo_re_mapped_merge_fil_Border)
+
+DGE <-Visium.Kubo_re_mapped_merge_fil_Border
+mito.index <- grep(pattern = "^MT-", x = rownames(Visium.Kubo_re_mapped_merge_fil_Border@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- Visium.Kubo_re_mapped_merge_fil_Border@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+DEG_10x.big_fil_Border<- FindMarkers(DGE, ident.1 = "SCZ",
+                                   ident.2 = "CON", latent.vars = c( "nCount_Spatial"),  assay ="SCT", logfc.threshold = 0, min.pct = 0.1 )
+DEG_10x.big_fil_Border<- as.data.frame(DEG_10x.big_fil_Border)
+DEG_10x.big_fil_Border<- DEG_10x.big_fil_Border%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_Border$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_Border$color[DEG_10x.big_fil_Border$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_Border$color[DEG_10x.big_fil_Border$p_val < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_Border$color[abs(DEG_10x.big_fil_Border$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_Border$color <- factor(DEG_10x.big_fil_Border$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_Border, aes(x = avg_log2FC, y = -log10(p_val+10^(-10000000)), color = color)) +
+  geom_point(alpha = 0.3, size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#c94c4c",
+                                  `P < 0.05` = "#990000",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "Border DEG SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1))) 
+
+# SCZd gene labels for top significant genes
+top_genes <- subset(DEG_10x.big_fil_Border, p_val< 0.05 & abs(avg_log2FC) > 0.26)
+p + geom_text(data = top_genes, aes(label = Genes), size = 4.5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Border_volcano_SCZvsCON_SCT.png", width = 5.5, height = 5)
+ggsave("Border_volcano_SCZvsCON_SCT.eps", width = 5.5, height = 5)
+
+
+
+```
