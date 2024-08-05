@@ -1,0 +1,708 @@
+
+```{r}
+library(Seurat)
+library(dplyr)
+library(ggplot2)
+library(harmony)
+library(scCustomize)
+library(tibble)
+library(patchwork)
+library(cowplot)
+library(SeuratDisk)
+library(viridis)
+```
+
+
+```{r}
+ACC_09z <-LoadH5Seurat ("~/Analysis/Kubo/Visium_Kubo/Old_Visium/Visium/ACC_09z.h5Seurat")
+ACC_16z <-LoadH5Seurat ("~/Analysis/Kubo/Visium_Kubo/Old_Visium/Visium/ACC_16z.h5Seurat")
+ACC_53c <-LoadH5Seurat ("~/Analysis/Kubo/Visium_Kubo/Old_Visium/Visium/ACC_53c.h5Seurat")
+#ACC_57c <-LoadH5Seurat ("~/Analysis/Kubo/Visium_Kubo/Old_Visium/Visium/ACC_57c.h5Seurat")
+
+#merge object no integration
+
+ACC_09z$Donor <- "09z"
+ACC_16z$Donor <- "16z"
+ACC_53c$Donor <- "53c"
+#ACC_57c$Donor <- "57c"
+
+ACC_09z$Diagnosis <- "SCZ"
+ACC_16z$Diagnosis <- "SCZ"
+ACC_53c$Diagnosis <- "CON"
+#ACC_57c$Diagnosis <- "CON"
+
+ACC_09z$Project <- "RIKEN"
+ACC_16z$Project <- "RIKEN"
+ACC_53c$Project <- "RIKEN"
+#ACC_57c$Donor <- "57c"
+
+
+
+
+ACC_17z <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/117/outs/filtered_feature_bc_matrix.h5")
+ACC_19z <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/19/outs/filtered_feature_bc_matrix.h5")
+ACC_38z <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/38/outs/filtered_feature_bc_matrix.h5")
+ACC_42c <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/42/outs/filtered_feature_bc_matrix.h5")
+ACC_47z <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/47/outs/filtered_feature_bc_matrix.h5")
+ACC_40c <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/40/outs/filtered_feature_bc_matrix.h5")
+ACC_43c <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/43/outs/filtered_feature_bc_matrix.h5")
+ACC_59c <- Read10X_h5(filename = "~/Analysis/Kubo/Multiome/59/outs/filtered_feature_bc_matrix.h5")
+
+
+
+# Create Seurat object dont filter bc later it wont match number of cells in ATACseq
+ACC_17z <-CreateSeuratObject(counts = ACC_17z$`Gene Expression`)
+ACC_19z <-CreateSeuratObject(counts = ACC_19z$`Gene Expression`)
+ACC_38z <-CreateSeuratObject(counts = ACC_38z$`Gene Expression`)
+ACC_42c <-CreateSeuratObject(counts = ACC_42c$`Gene Expression`)
+ACC_47z <-CreateSeuratObject(counts = ACC_47z$`Gene Expression`)
+ACC_40c <-CreateSeuratObject(counts = ACC_40c$`Gene Expression`)
+ACC_43c <-CreateSeuratObject(counts = ACC_43c$`Gene Expression`)
+ACC_59c <-CreateSeuratObject(counts = ACC_59c$`Gene Expression`)
+
+
+ACC_17z$Donor <-"17z"
+ACC_19z$Donor <-"19z"
+ACC_38z$Donor <-"38z"
+ACC_47z$Donor <-"47z"
+ACC_42c$Donor <-"42c"
+ACC_40c$Donor <-"40c"
+ACC_43c$Donor <-"43c"
+ACC_59c$Donor <-"59c"
+
+
+ACC_17z$Project <-"Multiome"
+ACC_19z$Project <-"Multiome"
+ACC_38z$Project <-"Multiome"
+ACC_47z$Project <-"Multiome"
+ACC_42c$Project <-"Multiome"
+ACC_40c$Project <-"Multiome"
+ACC_43c$Project <-"Multiome"
+ACC_59c$Project <-"Multiome"
+
+
+
+ACC_17z$Diagnosis <-"SCZ"
+ACC_19z$Diagnosis <-"SCZ"
+ACC_38z$Diagnosis <-"SCZ"
+ACC_47z$Diagnosis <-"SCZ"
+ACC_42c$Diagnosis <-"CON"
+ACC_40c$Diagnosis <-"CON"
+ACC_43c$Diagnosis <-"CON"
+ACC_59c$Diagnosis <-"CON"
+
+
+SObjects <- ls(pattern = "?_")
+
+# Create an empty list
+ifnb.list <- list()
+
+# Iterate over each data frame name
+for (df_name in SObjects) {
+  # Get the full data frame name
+  full_df_name <- get(df_name)
+  
+  # SCZd the data frame to the list
+  ifnb.list[[df_name]] <- full_df_name
+}
+
+  
+  
+ #Loop over each Seurat object in the list
+for (i in 1:length(ifnb.list)) {
+  seurat_obj <- ifnb.list[[i]]
+  
+  # Get the name of the Seurat object
+  obj_name <- names(ifnb.list)[i]
+  
+  # Perform the operations on the Seurat object
+  seurat_obj <- PercentageFeatureSet(seurat_obj, "^MT-", col.name = "percent_mito")
+  Idents(seurat_obj) <- seurat_obj$Donor
+  
+  # Assign the modified Seurat object back to the list
+  ifnb.list[[i]] <- seurat_obj
+  
+  VlnPlot(seurat_obj, features = c("nCount_RNA", "nFeature_RNA", "percent_mito"), pt.size = 0.1, ncol = 1) + NoLegend()
+  ggsave(paste0(obj_name, "_Violin_features.png"), width = 8, height = 12)
+}
+
+
+library (scDblFinder)
+
+for (i in 1:length(ifnb.list)) {
+  seurat_obj <- ifnb.list[[i]]
+  
+  # Get the name of the Seurat object
+  obj_name <- names(ifnb.list)[i]
+
+seurat_obj.sce <- as.SingleCellExperiment(seurat_obj)
+seurat_obj.sce <- scDblFinder(seurat_obj.sce)
+seurat_obj$scDblFinder.class <- seurat_obj.sce@colData$scDblFinder.class
+rm(seurat_obj.sce)
+
+ifnb.list[[i]] <- seurat_obj
+
+f<- table(seurat_obj$scDblFinder.class, seurat_obj$Donor) 
+prop_aging_clusters <- as.data.frame(f) 
+
+colnames(prop_aging_clusters) <- c("scDBlFinder", "Donor", "cell_number")
+f1 <-ggplot(prop_aging_clusters, aes(fill=Donor, y=cell_number , x= scDBlFinder)) + 
+  geom_bar(position="dodge", stat="identity") +
+  scale_fill_viridis(discrete = T)+
+  ggtitle("") + 
+  xlab("")+ theme_bw()
+f1 
+ggsave(paste0(obj_name, "_doublets.png"), width = 4, height = 3)
+
+seurat_obj_sgl <- subset(seurat_obj, subset = scDblFinder.class == 'singlet')
+
+VlnPlot(seurat_obj_sgl, features = c("nCount_RNA", "nFeature_RNA", "percent_mito"), pt.size = 0.1, ncol = 1) + NoLegend()
+  ggsave(paste0(obj_name, "_Violin_features_sgl.png"), width = 8, height = 12)
+
+seurat_obj_sgl_fil <- seurat_obj_sgl[, seurat_obj_sgl$nFeature_RNA > 350 &
+                               seurat_obj_sgl$nFeature_RNA < 5000 &
+                               seurat_obj_sgl$percent_mito < 15]
+  
+  # Assign the filtered Seurat object back to the list
+  ifnb.list[[i]] <- seurat_obj_sgl_fil
+  
+  VlnPlot(seurat_obj_sgl_fil, features = c("nCount_RNA", "nFeature_RNA", "percent_mito"), pt.size = 0.1, ncol = 1) + NoLegend()
+  ggsave(paste0(obj_name, "_fil_Violin_featuresfil.png"), width = 8, height = 12)
+
+}
+
+  VlnPlot(SCZ_combined_multiRNA_sgl_fil, features = c("nCount_RNA", "nFeature_RNA", "percent_mito"), pt.size = 0.1, ncol = 1) + NoLegend()
+
+
+processed_seurat_list <- lapply(ifnb.list, SCTransform,assay = "RNA", vst.flavor = "v2")
+
+brain.features <- SelectIntegrationFeatures(object.list = processed_seurat_list, nfeatures = 3000)
+
+ SCZ_combined_multiRNA_sgl_fil <- Merge_Seurat_List(processed_seurat_list,
+  merge.data = TRUE,
+  add.cell.ids = SObjects)
+ VariableFeatures(SCZ_combined_multiRNA_sgl_fil) <- brain.features
+ 
+ 
+ SCZ_combined_multiRNA_sgl_fil@meta.data$Donor <- as.factor(SCZ_combined_multiRNA_sgl_fil@meta.data$Donor)
+ levels(SCZ_combined_multiRNA_sgl_fil@meta.data$Donor)
+
+
+
+ 
+ SCZ_combined_multiRNA_sgl_fil <-SCZ_combined_multiRNA_sgl_fil%>%  RunPCA(assay ="SCT", verbose = FALSE) %>% FindNeighbors(reduction = "pca", dims = 1:30)%>% FindClusters (resolution=0.3) %>% RunUMAP (dims = 1:30 )
+
+
+DimPlot(SCZ_combined_multiRNA_sgl_fil, reduction = "umap", label = TRUE, group.by = "seurat_clusters", label.size = 0) 
+ggsave("UMAP_SCZ_combined_multiRNA_sgl_fil_filteredfinal.png", width =6 , height = 4)
+
+
+DimPlot(SCZ_combined_multiRNA_sgl_fil, reduction = "umap", label = TRUE, group.by = "Donor_ID")
+ggsave("UMAP_SCZ_combined_multiRNA_sgl_fil_gropubyDonorfinal.png", width =6 , height = 4)
+
+DimPlot(SCZ_combined_multiRNA_sgl_fil, reduction = "umap", label = TRUE, group.by = "Donor_ID", split.by = "Diagnosis" )
+ggsave("UMAP_SCZ_combined_multiRNA_sgl_fil_gropubyDonor.splitbyDiagnosisfinal.png", width =8 , height = 4)
+
+
+#harmony integration
+
+DefaultAssay(SCZ_combined_multiRNA_sgl_fil) <- "SCT"
+
+SCZ_combined_multiRNA_sgl_fil <- harmony::RunHarmony(SCZ_combined_multiRNA_sgl_fil, group.by.vars = c("Project", "Donor"), assay.use = "SCT" ,reduction = "pca",dims.use = 1:30)
+SCZ_combined_multiRNA_sgl_fil <- SCZ_combined_multiRNA_sgl_fil %>% RunUMAP(reduction = "harmony", dims = 1:30 ) %>% 
+  FindNeighbors(reduction = "harmony", dims = 1:30) %>% 
+  FindClusters(resolution = 0.8) %>% 
+  identity()
+
+
+#library(humancortexref.SeuratData)
+library(Azimuth)
+
+SCZ_combined_multiRNA_sgl_fil <- RunAzimuth(SCZ_combined_multiRNA_sgl_fil, reference = "humancortexref", assay = "RNA")
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$predicted.subclass
+
+
+
+SCZ_combined_multiRNA_sgl_fil <- RenameIdents(object = SCZ_combined_multiRNA_sgl_fil, "L5 ET" = "Neuron_Ex", "Pvalb" = "Neuron_Inh", "Vip" = "Neuron_Inh", "Lamp5" = "Neuron_Inh", "Sncg"= "Neuron_Inh", "VLMC" ="Pericytes", "L2/3 IT" = "Neuron_Ex", "L5 IT" = "Neuron_Ex", "L5/6 NP"= "Neuron_Ex", "L6 CT"= "Neuron_Ex", "L6 IT" = "Neuron_Ex", "L6 IT Car3" = "Neuron_Ex", "Sst" = "Neuron_Inh", "L6b" = "Neuron_Ex", "Sst Chodl" = "Neuron_Inh")
+
+SCZ_combined_multiRNA_sgl_fil$new_annotation <- Idents(SCZ_combined_multiRNA_sgl_fil)
+
+
+
+```
+
+
+```{r}
+#for paper figure
+
+ph1<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = c("Project"), colors_use = DiscretePalette_scCustomize(num_colors = 40, palette = "ditto_seq"))+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Project")
+ph2<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Donor")+ labs(title = "")+  theme(text = element_text(size= 20), legend.text = element_text(size= 12))+labs(title = "Donors")
+ph3<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Diagnosis", colors_use = JCO_Four())+ labs(title = "")+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Diagnosis")&NoAxes()
+ph4<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "new_annotation", colors_use  = c("#374e55","#df8f44" , "#00a1d5" ,"#b24745", "#79af97", "#669900", "#b3b3ff", "#336699"))+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Cell Type")&NoAxes()
+
+ph5<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "seurat_clusters")+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Cell Type")
+
+
+
+ph2|ph3|ph4
+ggsave("combined_harmony.eps", width = 12, height = 3.5)
+ggsave("combined_harmony.png", width = 12, height = 3.5)
+
+ph3/ph4
+ggsave("combined_harmony_paper.eps", width = 5.5, height = 8)
+ggsave("combined_harmony_paper.png", width = 5.5, height = 8)
+
+
+#saveRDS(object = SCZ_combined_multiRNA_sgl_fil, "SCZ_combined_multiRNA_sgl_fil.rds" )
+
+ph1|ph2|ph3|ph4|ph5
+
+DefaultAssay(SCZ_combined_multiRNA_sgl_fil ) <- "SCT"
+
+
+
+ggsave("combined_harmony.eps", width = 18, height = 3.5)
+ggsave("combined_harmony.png", width = 18, height = 3.5)
+
+
+```
+
+```{r}
+
+#Fig for the paper
+#re-name the project 3'and 5'
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$Project
+
+SCZ_combined_multiRNA_sgl_fil <- RenameIdents(object = SCZ_combined_multiRNA_sgl_fil, "RIKEN" = "5'sn-RNAseq", "Multiome" = "3'sn-RNAseq" )
+
+SCZ_combined_multiRNA_sgl_fil$Project <- Idents(SCZ_combined_multiRNA_sgl_fil)
+
+SCZ_combined_multiRNA_sgl_fil <- RenameIdents(object = SCZ_combined_multiRNA_sgl_fil, "5'sn-RNAseq" = "5'assay", "3'sn-RNAseq"= "3'assay" )
+
+SCZ_combined_multiRNA_sgl_fil$Project <- Idents(SCZ_combined_multiRNA_sgl_fil)
+
+
+ph1<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = c("Project"), colors_use = DiscretePalette_scCustomize(num_colors = 40, palette = "ditto_seq"))+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Project")
+ph2<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Donor")+ labs(title = "")+  theme(text = element_text(size= 20), legend.text = element_text(size= 12))+labs(title = "Donors")
+ph3<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Diagnosis", colors_use = JCO_Four())+ labs(title = "")+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Diagnosis")
+ph4<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "new_annotation", colors_use  = c("#374e55","#df8f44" , "#00a1d5" ,"#b24745", "#79af97", "#669900", "#b3b3ff", "#336699"))+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Cell Type")
+
+
+ph1|ph2|ph3|ph4
+
+
+ggsave("combined_harmony_fig1.eps", width = 16, height = 3.5, units = "in", dpi = 450)
+ggsave("combined_harmony_fig1.png", width = 16, height = 3.5, units = "in", dpi = 450)
+
+ph2<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Donor")+ labs(title = "")+  theme(text = element_text(size= 20), legend.text = element_text(size= 12))+labs(title = "Donors")&NoAxes()
+ph3<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "Diagnosis", colors_use = JCO_Four())+ labs(title = "")+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Diagnosis")&NoAxes()
+ph4<-DimPlot_scCustom(seurat_object = SCZ_combined_multiRNA_sgl_fil, group.by = "new_annotation", colors_use  = c("#374e55","#df8f44" , "#00a1d5" ,"#b24745", "#79af97", "#669900", "#b3b3ff", "#336699"))+ theme(text = element_text(size= 20), legend.text = element_text(size= 20))+labs(title = "Cell Type")&NoAxes()
+
+ph3|ph2|ph4
+
+ggsave("combined_harmony_fig1_3pannels.eps", width = 10, height = 3, units = "in", dpi = 450)
+ggsave("combined_harmony_fig1_3pannels.png", width = 10, height = 3, units = "in", dpi = 450)
+
+```
+
+
+```{r}
+SCZ_combined_multiRNA_sgl_fil <- PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil)
+
+
+SCZ_Cell_type_markers <- FindAllMarkers(SCZ_combined_multiRNA_sgl_fil, only.pos = TRUE, min.pct = 0.1)
+
+write.csv(SCZ_Cell_type_markers, "SCZ_Cell_type_markers.csv")
+
+SCZ_combined_multiRNA_sgl_fil
+
+md <- SCZ_combined_multiRNA_sgl_fil@meta.data %>% as.data.table
+
+A<-md[, .N, by = c("new_annotation")]
+
+sum(A$N)
+
+```
+
+
+
+
+
+```{r}
+#DGE by subclusters:
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$new_annotation
+
+SCZ_combined_multiRNA_sgl_fil<-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil)
+
+SCZ_combined_multiRNA_sgl_fil_N_EX<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "Neuron_Ex")
+Idents(SCZ_combined_multiRNA_sgl_fil_N_EX) <- SCZ_combined_multiRNA_sgl_fil_N_EX$Diagnosis
+SCZ_combined_multiRNA_sgl_fil_N_EX <-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_N_EX)
+DGE <-SCZ_combined_multiRNA_sgl_fil_N_EX
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_N_EX@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_N_EX@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+ 
+DEG_10x.big_fil_N_EX<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1, recorrect_umi=FALSE)
+DEG_10x.big_fil_N_EX<- as.data.frame(DEG_10x.big_fil_N_EX)
+DEG_10x.big_fil_N_EX<- DEG_10x.big_fil_N_EX%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_N_EX$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_N_EX$color[DEG_10x.big_fil_N_EX$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_N_EX$color[DEG_10x.big_fil_N_EX$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_N_EX$color[abs(DEG_10x.big_fil_N_EX$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_N_EX$color <- factor(DEG_10x.big_fil_N_EX$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_N_EX, aes(x = avg_log2FC, y = -log10(p_val), color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "N_Ex SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = element_blank()) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_N_EX$avg_log2FC-1), max(DEG_10x.big_fil_N_EX$avg_log2FC)+1, y = c(0, min(-log(DEG_10x.big_fil_N_EX$p_val)))))
+
+
+top_genes<-DEG_10x.big_fil_N_EX%>%slice_max(abs(avg_log2FC), n=80)
+
+V_EXN<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_N_EX_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_N_EX_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$new_annotation
+
+SCZ_combined_multiRNA_sgl_fil_N_IN<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "Neuron_Inh")
+Idents(SCZ_combined_multiRNA_sgl_fil_N_IN) <- SCZ_combined_multiRNA_sgl_fil_N_IN$Diagnosis
+SCZ_combined_multiRNA_sgl_fil_N_IN <-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_N_IN)
+DGE <-SCZ_combined_multiRNA_sgl_fil_N_IN
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_N_IN@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_N_IN@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_N_IN<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1)
+DEG_10x.big_fil_N_IN<- as.data.frame(DEG_10x.big_fil_N_IN)
+DEG_10x.big_fil_N_IN<- DEG_10x.big_fil_N_IN%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_N_IN$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_N_IN$color[DEG_10x.big_fil_N_IN$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_N_IN$color[DEG_10x.big_fil_N_IN$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_N_IN$color[abs(DEG_10x.big_fil_N_IN$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_N_IN$color <- factor(DEG_10x.big_fil_N_IN$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_N_IN, aes(x = avg_log2FC, y = -log10(p_val), color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "N_Inh SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = element_blank()) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_N_IN$avg_log2FC-1), max(DEG_10x.big_fil_N_IN$avg_log2FC)+1, y = c(0, min(-log(DEG_10x.big_fil_N_IN$p_val)))))
+
+# SCZd gene labels for top significant genes
+top_genes<-DEG_10x.big_fil_N_IN%>%slice_max(abs(avg_log2FC), n=80)
+
+V_IN<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_N_IN_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_N_IN_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$new_annotation
+
+SCZ_combined_multiRNA_sgl_fil_Astro<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "Astro")
+Idents(SCZ_combined_multiRNA_sgl_fil_Astro) <- SCZ_combined_multiRNA_sgl_fil_Astro$Diagnosis
+SCZ_combined_multiRNA_sgl_fil_Astro <- PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_Astro)
+
+DGE <-SCZ_combined_multiRNA_sgl_fil_Astro
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_Astro@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_Astro@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+ 
+DEG_10x.big_fil_Astro<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1)
+DEG_10x.big_fil_Astro<- as.data.frame(DEG_10x.big_fil_Astro)
+DEG_10x.big_fil_Astro<- DEG_10x.big_fil_Astro%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_Astro$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_Astro$color[DEG_10x.big_fil_Astro$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_Astro$color[DEG_10x.big_fil_Astro$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_Astro$color[abs(DEG_10x.big_fil_Astro$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_Astro$color <- factor(DEG_10x.big_fil_Astro$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_Astro, aes(x = avg_log2FC, y = -log10(p_val), color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "Astro SCZ vs CON",
+       x = element_blank(), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_Astro$avg_log2FC-1.5), max(DEG_10x.big_fil_Astro$avg_log2FC)+1.5, y = c(0, min(-log(DEG_10x.big_fil_Astro$p_val)))))
+
+# SCZd gene labels for top significant genes
+
+top_genes<-DEG_10x.big_fil_Astro%>%slice_max(abs(avg_log2FC), n=80)
+top_genes
+
+
+V_AS<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_Astro_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_Astro_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+Idents(SCZ_combined_multiRNA_sgl_fil) <- SCZ_combined_multiRNA_sgl_fil$new_annotation
+
+SCZ_combined_multiRNA_sgl_fil_Oligo<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "Oligo")
+Idents(SCZ_combined_multiRNA_sgl_fil_Oligo) <- SCZ_combined_multiRNA_sgl_fil_Oligo$Diagnosis
+
+SCZ_combined_multiRNA_sgl_fil_Oligo <-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_Oligo)
+
+DGE <-SCZ_combined_multiRNA_sgl_fil_Oligo
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_Oligo@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_Oligo@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_Oligo<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1,recorrect_umi=FALSE)
+DEG_10x.big_fil_Oligo<- as.data.frame(DEG_10x.big_fil_Oligo)
+DEG_10x.big_fil_Oligo<- DEG_10x.big_fil_Oligo%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_Oligo$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_Oligo$color[DEG_10x.big_fil_Oligo$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_Oligo$color[DEG_10x.big_fil_Oligo$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_Oligo$color[abs(DEG_10x.big_fil_Oligo$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_Oligo$color <- factor(DEG_10x.big_fil_Oligo$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+#special case because it has infinite values
+
+max_y <- with(DEG_10x.big_fil_Oligo, max(-log10(p_val[p_val > 0])))
+cap_value <- max_y * 1.1  # This will be the maximum value of the y-axis
+
+# Replace infinite values with the cap_value
+DEG_10x.big_fil_Oligo$adjusted_p_val <- with(DEG_10x.big_fil_Oligo, ifelse(-log10(p_val) > cap_value, cap_value, -log10(p_val)))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_Oligo, aes(x = avg_log2FC, y = adjusted_p_val, color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "Oligo SCZ vs CON",
+       x = element_blank(), # update x-axis label
+       y = element_blank()) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_Micro_PVM$avg_log2FC-0.5), max(DEG_10x.big_fil_Micro_PVM$avg_log2FC)+0.5, y = c(0, min(-log(DEG_10x.big_fil_Micro_PVM$p_val)))))
+
+# SCZd gene labels for top significant genes
+top_genes<-DEG_10x.big_fil_Oligo%>%slice_max(abs(avg_log2FC), n=100)
+
+V_Oligo<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_Oligo_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_Oligo_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+
+
+SCZ_combined_multiRNA_sgl_fil_Micro_PVM<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "Micro-PVM")
+Idents(SCZ_combined_multiRNA_sgl_fil_Micro_PVM) <- SCZ_combined_multiRNA_sgl_fil_Micro_PVM$Diagnosis
+SCZ_combined_multiRNA_sgl_fil_Micro_PVM <-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_Micro_PVM)
+DGE <-SCZ_combined_multiRNA_sgl_fil_Micro_PVM
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_Micro_PVM@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_Micro_PVM@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_Micro_PVM<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1,recorrect_umi=FALSE)
+DEG_10x.big_fil_Micro_PVM<- as.data.frame(DEG_10x.big_fil_Micro_PVM)
+DEG_10x.big_fil_Micro_PVM<- DEG_10x.big_fil_Micro_PVM%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_Micro_PVM$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_Micro_PVM$color[DEG_10x.big_fil_Micro_PVM$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_Micro_PVM$color[DEG_10x.big_fil_Micro_PVM$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_Micro_PVM$color[abs(DEG_10x.big_fil_Micro_PVM$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_Micro_PVM$color <- factor(DEG_10x.big_fil_Micro_PVM$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_Micro_PVM, aes(x = avg_log2FC, y = -log10(p_val), color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "Micro-PVM SCZ vs CON",
+       x = expression("log"[2]*" Fold Change"), # update x-axis label
+       y = expression("-log"[10]*" p-value")) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_Micro_PVM$avg_log2FC-1), max(DEG_10x.big_fil_Micro_PVM$avg_log2FC)+1, y = c(0, min(-log(DEG_10x.big_fil_Micro_PVM$p_val)))))
+
+# SCZd gene labels for top significant genes
+top_genes<-DEG_10x.big_fil_Micro_PVM%>%  slice_max(abs(avg_log2FC), n=80)
+
+V_Micro<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_Micro_PVM_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_Micro_PVM_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+SCZ_combined_multiRNA_sgl_fil_OPC<-subset(SCZ_combined_multiRNA_sgl_fil, idents = "OPC")
+Idents(SCZ_combined_multiRNA_sgl_fil_OPC) <- SCZ_combined_multiRNA_sgl_fil_OPC$Diagnosis
+SCZ_combined_multiRNA_sgl_fil_OPC <-PrepSCTFindMarkers(SCZ_combined_multiRNA_sgl_fil_OPC)
+DGE <-SCZ_combined_multiRNA_sgl_fil_OPC
+mito.index <- grep(pattern = "^MT-", x = rownames(SCZ_combined_multiRNA_sgl_fil_OPC@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- SCZ_combined_multiRNA_sgl_fil_OPC@assays$SCT@data[-mito.index, ]
+MTR.index <- grep(pattern = "^MTR", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-MTR.index, ]
+RP.index <- grep(pattern = "^RP", x = rownames(DGE@assays$SCT@data), value = FALSE) 
+DGE@assays$SCT@data <- DGE@assays$SCT@data[-RP.index, ]
+
+
+DEG_10x.big_fil_OPC<- FindMarkers(DGE, ident.1 = "SCZ",
+                                ident.2 = "CON", test.use = "LR", latent.vars = c("Project", "nCount_RNA"),  assay ="SCT",logfc.threshold = 0,min.pct = 0.1,recorrect_umi=FALSE)
+DEG_10x.big_fil_OPC<- as.data.frame(DEG_10x.big_fil_OPC)
+DEG_10x.big_fil_OPC<- DEG_10x.big_fil_OPC%>%rownames_to_column(var = "Genes")
+
+DEG_10x.big_fil_OPC$color <- "NS or FC < 0.26"
+DEG_10x.big_fil_OPC$color[DEG_10x.big_fil_OPC$p_val < 0.05] <- "P < 0.05"
+DEG_10x.big_fil_OPC$color[DEG_10x.big_fil_OPC$p_val_SCZj < 0.05] <- "FDR < 0.05"
+DEG_10x.big_fil_OPC$color[abs(DEG_10x.big_fil_OPC$avg_log2FC) < 0.26] <- "NS or FC < 0.26"
+DEG_10x.big_fil_OPC$color <- factor(DEG_10x.big_fil_OPC$color,
+                        levels = c("NS or FC < 0.26", "P < 0.05",
+                                   "FDR < 0.05"))
+
+# Generate volcano plot with ggplot2
+p <- ggplot(DEG_10x.big_fil_OPC, aes(x = avg_log2FC, y = -log10(p_val), color = color)) +
+  geom_point( size = 2, stroke = 0.2) +
+  scale_color_manual(values = c(`FDR < 0.05` = "#99b3e6",
+                                  `P < 0.05` = "#99b3e6",
+                                  `NS or FC < 0.26` = "gray")) +
+  labs(title = "OPC SCZ vs CON",
+       x = element_blank(), # update x-axis label
+       y = element_blank()) +
+  theme_bw(base_size = 14) +
+  theme(plot.title = element_text(size = rel(1.4), hjust = 0.5),
+        axis.title = element_text(size = rel(1.2),
+                                  face = "bold"),
+        axis.text = element_text(size = rel(1)),plot.margin = unit(c(1, 1, 1, 1), "lines")) + # SCZd margin expansion
+  expand_limits(x = c(min(DEG_10x.big_fil_OPC$avg_log2FC-1), max(DEG_10x.big_fil_OPC$avg_log2FC)+1, y = c(0, min(-log(DEG_10x.big_fil_OPC$p_val)))))
+
+# SCZd gene labels for top significant genes
+top_genes<-DEG_10x.big_fil_OPC%>%slice_max(abs(avg_log2FC), n=80)
+
+
+V_OPC<-p + geom_text(data = top_genes, aes(label = Genes), size = 5, color = "black", check_overlap = TRUE) +
+  geom_vline(xintercept = c(0.26, -0.26), lty = "dashed") +
+    geom_hline(yintercept = -log10(0.05), lty = "dashed")+
+  guides(color = guide_legend(override.aes = list(stroke = 1))) +
+    theme(legend.position = "none")
+
+
+ggsave("Neuron_OPC_volcano_SCZvsCON_LR_SCT.png", width = 7.5, height = 5)
+ggsave("Neuron_OPC_volcano_SCZvsCON_LR_SCT.eps", width = 7.5, height = 5)
+
+
+
+
+(V_AS|V_Oligo|V_OPC)/(V_Micro|V_EXN|V_IN) +  plot_layout(guides  =  "collect")
+
+ggsave("Collected_volcano_SCZvsCON_LR_SCT.png", width = 17, height = 11, dpi = 650)
+ggsave("CollectedC_volcano_SCZvsCON_LR_SCT.eps", width = 17, height = 11, dpi = 650)
+
+```
