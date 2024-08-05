@@ -10,6 +10,20 @@ library(ComplexHeatmap)
 library(tibble)
 library(stringr)
 
+#GSEA to understand the contibution of cell types to the tissue
+
+#first gather top 100 DGE from each cell type in vectors, the refer to your old code
+
+Ex_N<-DEG_10x.big_fil_N_EX%>% filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+Inh_N<-DEG_10x.big_fil_N_IN%>%  filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+Astro<-DEG_10x.big_fil_Astro%>%  filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+Oligo<-DEG_10x.big_fil_Oligo%>%  filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+Micro<-DEG_10x.big_fil_Micro_PVM%>%  filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+OPC<-DEG_10x.big_fil_OPC%>%  filter(abs(avg_log2FC)>0.26 & p_val_adj<0.05)%>% slice_min(p_val_adj, n=100)
+
+
+Cell_type_GO <- list(Ex_N=Ex_N$Genes, Inh_N=Inh_N$Genes,Astro=Astro$Genes,
+                       Oligo=Oligo$Genes, Micro=Micro$Genes, OPC=OPC$Genes )
 
 GSEA <- function(DE_file) {
   #DE file is the ouput of DE from a Seurat object
