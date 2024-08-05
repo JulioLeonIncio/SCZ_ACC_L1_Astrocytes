@@ -1,0 +1,667 @@
+
+
+```{r}
+ptm = Sys.time()
+
+library(CellChat)
+library(patchwork)
+library(CellChat)
+library(Seurat)
+```
+
+
+
+```{r}
+#from the previus analysis I created the list of object based on donors
+
+
+data.inputCON_40 = Seurat::GetAssayData(list_objects$CON_40, layer = "data", assay = "SCT")
+
+
+
+metaCON_40 = data.frame(labels = list_objects$CON_40$Regions, samples = "CON_40", row.names = names(list_objects$CON_40$Regions))
+unique(metaCON_40$labels)
+
+#using the coordinated of original C_40 bc thre is an unsolved complication in the objects arised from split seurat fucntion
+spatial.locsCON_40 = Seurat::GetTissueCoordinates(C_40, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsCON_40) <- paste0("C_40_", rownames(spatial.locsCON_40))
+matchingbarcodes <- intersect(rownames(metaCON_40), rownames(spatial.locsCON_40))
+spatial.locsCON_40<- spatial.locsCON_40[matchingbarcodes,]
+
+
+
+scalefactorsCON_40 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/40_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorCON_40 = spot.size/scalefactorsCON_40$spot_diameter_fullres
+spatial.factorsCON_40 = data.frame(ratio = conversion.factorCON_40, tol = spot.size/2)
+
+
+data.inputCON_42 = Seurat::GetAssayData(list_objects$CON_42, layer = "data", assay = "SCT")
+metaCON_42 = data.frame(labels = list_objects$CON_42$Regions, samples = "CON_42", row.names = names(list_objects$CON_42$Regions))
+unique(metaCON_42$labels)
+spatial.locsCON_42 = Seurat::GetTissueCoordinates(C_42, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsCON_42) <- paste0("C_42_", rownames(spatial.locsCON_42))
+matchingbarcodes <- intersect(rownames(metaCON_42), rownames(spatial.locsCON_42))
+spatial.locsCON_42<- spatial.locsCON_42[matchingbarcodes,]
+
+scalefactorsCON_42 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/42_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorCON_42 = spot.size/scalefactorsCON_42$spot_diameter_fullres
+spatial.factorsCON_42 = data.frame(ratio = conversion.factorCON_42, tol = spot.size/2)
+
+
+data.inputCON_43 = Seurat::GetAssayData(list_objects$CON_43, layer = "data", assay = "SCT")
+metaCON_43 = data.frame(labels = list_objects$CON_43$Regions, samples = "CON_43", row.names = names(list_objects$CON_43$Regions))
+unique(metaCON_43$labels)
+spatial.locsCON_43 = Seurat::GetTissueCoordinates(C_43, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsCON_43) <- paste0("C_43_", rownames(spatial.locsCON_43))
+matchingbarcodes <- intersect(rownames(metaCON_43), rownames(spatial.locsCON_43))
+spatial.locsCON_43<- spatial.locsCON_43[matchingbarcodes,]
+
+scalefactorsCON_43 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/43_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorCON_43 = spot.size/scalefactorsCON_43$spot_diameter_fullres
+spatial.factorsCON_43 = data.frame(ratio = conversion.factorCON_43, tol = spot.size/2)
+
+
+data.inputCON_59 = Seurat::GetAssayData(list_objects$CON_59, layer = "data", assay = "SCT")
+metaCON_59 = data.frame(labels = list_objects$CON_59$Regions, samples = "CON_59", row.names = names(list_objects$CON_59$Regions))
+unique(metaCON_59$labels)
+spatial.locsCON_59 = Seurat::GetTissueCoordinates(C_59, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsCON_59) <- paste0("C_59_", rownames(spatial.locsCON_59))
+matchingbarcodes <- intersect(rownames(metaCON_59), rownames(spatial.locsCON_59))
+spatial.locsCON_59<- spatial.locsCON_59[matchingbarcodes,]
+
+scalefactorsCON_59 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/59_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorCON_59 = spot.size/scalefactorsCON_59$spot_diameter_fullres
+spatial.factorsCON_59 = data.frame(ratio = conversion.factorCON_59, tol = spot.size/2)
+
+
+data.inputSCZ_17 = Seurat::GetAssayData(list_objects$SCZ_17, layer = "data", assay = "SCT")
+metaSCZ_17 = data.frame(labels = list_objects$SCZ_17$Regions, samples = "SCZ_17", row.names = names(list_objects$SCZ_17$Regions))
+unique(metaSCZ_17$labels)
+spatial.locsSCZ_17 = Seurat::GetTissueCoordinates(Z_17, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsSCZ_17) <- paste0("Z_17_", rownames(spatial.locsSCZ_17))
+matchingbarcodes <- intersect(rownames(metaSCZ_17), rownames(spatial.locsSCZ_17))
+spatial.locsSCZ_17<- spatial.locsSCZ_17[matchingbarcodes,]
+
+scalefactorsSCZ_17 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/17_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorSCZ_17 = spot.size/scalefactorsSCZ_17$spot_diameter_fullres
+spatial.factorsSCZ_17 = data.frame(ratio = conversion.factorSCZ_17, tol = spot.size/2)
+
+
+data.inputSCZ_19 = Seurat::GetAssayData(list_objects$SCZ_19, layer = "data", assay = "SCT")
+metaSCZ_19 = data.frame(labels = list_objects$SCZ_19$Regions, samples = "SCZ_19", row.names = names(list_objects$SCZ_19$Regions))
+unique(metaSCZ_19$labels)
+spatial.locsSCZ_19 = Seurat::GetTissueCoordinates(Z_19, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsSCZ_19) <- paste0("Z_19_", rownames(spatial.locsSCZ_19))
+matchingbarcodes <- intersect(rownames(metaSCZ_19), rownames(spatial.locsSCZ_19))
+spatial.locsSCZ_19<- spatial.locsSCZ_19[matchingbarcodes,]
+
+scalefactorsSCZ_19 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/49_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorSCZ_19 = spot.size/scalefactorsSCZ_19$spot_diameter_fullres
+spatial.factorsSCZ_19 = data.frame(ratio = conversion.factorSCZ_19, tol = spot.size/2)
+
+
+data.inputSCZ_38 = Seurat::GetAssayData(list_objects$SCZ_38, layer = "data", assay = "SCT")
+metaSCZ_38 = data.frame(labels = list_objects$SCZ_38$Regions, samples = "SCZ_38", row.names = names(list_objects$SCZ_38$Regions))
+unique(metaSCZ_38$labels)
+spatial.locsSCZ_38 = Seurat::GetTissueCoordinates(Z_38, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsSCZ_38) <- paste0("Z_38_", rownames(spatial.locsSCZ_38))
+matchingbarcodes <- intersect(rownames(metaSCZ_38), rownames(spatial.locsSCZ_38))
+spatial.locsSCZ_38<- spatial.locsSCZ_38[matchingbarcodes,]
+
+scalefactorsSCZ_38 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/38_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorSCZ_38 = spot.size/scalefactorsSCZ_38$spot_diameter_fullres
+spatial.factorsSCZ_38 = data.frame(ratio = conversion.factorSCZ_38, tol = spot.size/2)
+
+
+
+data.inputSCZ_47 = Seurat::GetAssayData(list_objects$SCZ_47, layer = "data", assay = "SCT")
+metaSCZ_47 = data.frame(labels = list_objects$SCZ_47$Regions, samples = "SCZ_47", row.names = names(list_objects$SCZ_47$Regions))
+unique(metaSCZ_47$labels)
+spatial.locsSCZ_47 = Seurat::GetTissueCoordinates(Z_47, scale = NULL, cols = c("imagerow", "imagecol")) 
+
+rownames(spatial.locsSCZ_47) <- paste0("Z_47_", rownames(spatial.locsSCZ_47))
+matchingbarcodes <- intersect(rownames(metaSCZ_47), rownames(spatial.locsSCZ_47))
+spatial.locsSCZ_47<- spatial.locsSCZ_47[matchingbarcodes,]
+
+scalefactorsSCZ_47 = jsonlite::fromJSON(txt = file.path("/home/julio.l/Analysis/Kubo/Visium_Kubo/Old_Visium/47_results/spatial/", "scalefactors_json.json"))
+spot.size = 65 # the theoretical spot size (um) in 10X Visium
+conversion.factorSCZ_47 = spot.size/scalefactorsSCZ_47$spot_diameter_fullres
+spatial.factorsSCZ_47 = data.frame(ratio = conversion.factorSCZ_47, tol = spot.size/2)
+
+
+
+```
+
+```{r}
+#create two cell chat objects based on Disease, here CON
+
+genes.common_CON <- Reduce(intersect, list(rownames(data.inputCON_40), rownames(data.inputCON_42), rownames(data.inputCON_43), rownames(data.inputCON_59)))
+
+
+data.input_CON <- cbind(data.inputCON_40[genes.common_CON, ], data.inputCON_42[genes.common_CON, ], data.inputCON_43[genes.common_CON, ], data.inputCON_59[genes.common_CON, ])
+
+
+
+meta_CON <- rbind(metaCON_40, metaCON_42, metaCON_43, metaCON_59)
+rownames(meta_CON) <- colnames(data.input_CON)
+# a factor level should be defined for the `meta$labels` and `meta$samples`
+meta_CON$labels <- factor(meta_CON$labels)
+meta_CON$samples <- factor(meta_CON$samples)
+unique(meta_CON$samples)
+
+spatial.locs_CON <- rbind(spatial.locsCON_40, spatial.locsCON_42, spatial.locsCON_43, spatial.locsCON_59 )
+rownames(spatial.locs_CON) <- colnames(data.input_CON)
+
+spatial.factors_CON <- rbind(spatial.factorsCON_40, spatial.factorsCON_42, spatial.factorsCON_43, spatial.factorsCON_59  )
+
+cellchat_SCZ <- createCellChat(object = data.input_CON, meta = meta_CON, group.by = "labels",
+                           datatype = "spatial", coordinates = spatial.locs_CON, spatial.factors = spatial.factors_CON )
+
+
+cellchat_SCZ@data.signaling
+
+```
+```{r}
+
+#create two cell chat objects based on Disease, here CON
+
+genes.common_SCZ <- Reduce(intersect, list(rownames(data.inputSCZ_17), rownames(data.inputSCZ_19), rownames(data.inputSCZ_38), rownames(data.inputSCZ_47)))
+
+
+data.input_SCZ <- cbind(data.inputSCZ_17[genes.common_SCZ, ], data.inputSCZ_19[genes.common_SCZ, ], data.inputSCZ_38[genes.common_SCZ, ], data.inputSCZ_47[genes.common_SCZ, ])
+
+meta_SCZ <- rbind(metaSCZ_17, metaSCZ_19, metaSCZ_38, metaSCZ_47)
+rownames(meta_SCZ) <- colnames(data.input_SCZ)
+# a factor level should be defined for the `meta$labels` and `meta$samples`
+meta_SCZ$labels <- factor(meta_SCZ$labels)
+meta_SCZ$samples <- factor(meta_SCZ$samples)
+unique(meta_SCZ$labels)
+
+spatial.locs_SCZ <- rbind(spatial.locsSCZ_17, spatial.locsSCZ_19, spatial.locsSCZ_38, spatial.locsSCZ_47 )
+rownames(spatial.locs_SCZ) <- colnames(data.input_SCZ)
+
+spatial.factors_SCZ <- rbind(spatial.factorsSCZ_17, spatial.factorsSCZ_19, spatial.factorsSCZ_38, spatial.factorsSCZ_47  )
+
+cellchat_SCZ <- createCellChat(object = data.input_SCZ, meta = meta_SCZ, group.by = "labels",
+                           datatype = "spatial", coordinates = spatial.locs_SCZ, spatial.factors = spatial.factors_SCZ)
+
+
+cellchat_SCZ@data
+
+```
+```{r}
+CellChatDB <- CellChatDB.human # use CellChatDB.human if running on human data
+
+# use a subset of CellChatDB for cell-cell communication analysis
+CellChatDB.use <- subsetDB(CellChatDB, search = "Secreted Signaling", key = "annotation") # use Secreted Signaling
+# set the used database in the object
+
+
+cellchat_CON@DB <- CellChatDB.use
+cellchat_SCZ@DB <- CellChatDB.use
+
+
+future::plan("multisession", workers = 8) 
+cellchat_CON<- subsetData(cellchat_CON) # This step is necessary even if using the whole database
+cellchat_SCZ <- subsetData(cellchat_SCZ)
+cellchat_CON<- identifyOverExpressedGenes(cellchat_CON)
+cellchat_SCZ <- identifyOverExpressedGenes(cellchat_SCZ)
+
+cellchat_CON <- identifyOverExpressedInteractions(cellchat_CON, variable.both = F)
+
+cellchat_SCZ <- identifyOverExpressedInteractions(cellchat_SCZ, variable.both = F)
+
+
+```
+```{r}
+ptm = Sys.time()
+future::plan("multisession", workers = 10)
+cellchat_CON <- computeCommunProb(cellchat_CON, type = "truncatedMean", trim = 0.075, 
+                              distance.use = FALSE, interaction.range = 300, scale.distance = NULL,
+                              contact.dependent = TRUE, contact.range = 100)
+
+
+cellchat_SCZ <- computeCommunProb(cellchat_SCZ, type = "truncatedMean", trim = 0.075, 
+                              distance.use = FALSE, interaction.range = 300, scale.distance = NULL,
+                              contact.dependent = TRUE, contact.range = 100)
+```
+```{r}
+cellchat_CON <- filterCommunication(cellchat_CON, min.cells = 10, min.samples=3)#min samples at in 3 out of 4 in our case
+
+cellchat_SCZ <- filterCommunication(cellchat_SCZ, min.cells = 10, min.samples=3)
+
+cellchat_CON <- computeCommunProbPathway(cellchat_CON)
+
+cellchat_SCZ <- computeCommunProbPathway(cellchat_SCZ)
+
+
+cellchat_CON <- aggregateNet(cellchat_CON)
+cellchat_SCZ <- aggregateNet(cellchat_SCZ)
+
+
+execution.time = Sys.time() - ptm
+print(as.numeric(execution.time, units = "secs"))
+#> [1] 188.3582
+
+```
+
+```{r}
+
+groupSize <- as.numeric(table(cellchat_CON@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat_CON@net$count, vertex.weight = rowSums(cellchat_CON@net$count), weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat_CON@net$weight, vertex.weight = rowSums(cellchat_CON@net$weight), weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+
+
+groupSize <- as.numeric(table(cellchat_SCZ@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat_SCZ@net$count, vertex.weight = rowSums(cellchat_SCZ@net$count), weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat_SCZ@net$weight, vertex.weight = rowSums(cellchat_SCZ@net$weight), weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+```
+```{r}
+
+netVisual_heatmap(cellchat_CON, measure = "count", color.heatmap = "Blues")
+netVisual_heatmap(cellchat_CON, measure = "weight", color.heatmap = "Blues")
+
+cellchat_CON@netP$prob
+
+par(mfrow=c(1,1), xpd = TRUE) # `xpd = TRUE` should be added to show the title
+netVisual_aggregate(cellchat_CON, signaling = "BMP", layout = "circle")
+
+cellchat_CON <- netAnalysis_computeCentrality(cellchat_CON, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+# Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+par(mfrow=c(1,1))
+netAnalysis_signalingRole_network(cellchat_CON, signaling = "GAS", width = 8, height = 2.5, font.size = 10)
+
+
+
+
+netAnalysis_contribution(cellchat_CON, signaling = "BMP")
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "IGFBP3_TMEM219", sample.use = "CON_40", point.size = 1.5, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "IGFBP3_TMEM219", sample.use = "CON_43", point.size = 0.5, do.binary = FALSE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+
+
+
+#SCZ
+
+netVisual_heatmap(cellchat_SCZ, measure = "count", color.heatmap = "Blues")
+netVisual_heatmap(cellchat_SCZ, measure = "weight", color.heatmap = "Blues")
+
+cellchat_SCZ@netP$prob
+
+par(mfrow=c(1,1), xpd = TRUE) # `xpd = TRUE` should be added to show the title
+netVisual_aggregate(cellchat_SCZ, signaling = "BMP", layout = "circle")
+
+cellchat_SCZ <- netAnalysis_computeCentrality(cellchat_SCZ, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+# Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+par(mfrow=c(1,1))
+netAnalysis_signalingRole_network(cellchat_SCZ, signaling = "GAS", width = 8, height = 2.5, font.size = 10)
+
+par(mfrow=c(1,1))
+
+
+
+
+
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "PTN")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "IGFBP3_TMEM219", sample.use = "SCZ_17", point.size = 1.5, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "IGFBP3_TMEM219", sample.use = "SCZ_17", point.size = 0.5, do.binary = FALSE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+
+
+```
+```{r}
+#perfrom a comparative analysis across conditions
+
+object.list <- list(CON = cellchat_CON, SCZ = cellchat_SCZ)
+cellchat <- mergeCellChat(object.list, add.names = names(object.list))
+save(object.list, file = "cellchat_object.list_humanCON_SCZ.RData")
+save(cellchat, file = "cellchat_merged_CON_SCZ.RData")
+
+gg1 <- compareInteractions(cellchat, show.legend = F, group = c(1,2))
+gg2 <- compareInteractions(cellchat, show.legend = F, group = c(1,2), measure = "weight")
+gg1 + gg2
+
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_diffInteraction(cellchat, weight.scale = T)
+netVisual_diffInteraction(cellchat, weight.scale = T, measure = "weight")
+
+#
+
+
+
+
+
+```
+```{r}
+gg1 <- netVisual_heatmap(cellchat)
+#> Do heatmap based on a merged object
+gg2 <- netVisual_heatmap(cellchat, measure = "weight")
+#> Do heatmap based on a merged object
+gg1 + gg2
+```
+```{r}
+png("circle_plot_intercations_CON_SCZ.png", width = 2000, height = 1200, res = 300)
+weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_circle(object.list[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list)[i]))
+}
+dev.off()
+```
+
+
+```{r}
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+patchwork::wrap_plots(plots = gg)
+
+ggsave("Aggregated_Cell-Cell_communication_COn_SCZ.png", width = 7 , height = 2.8)
+ggsave("Aggregated_Cell-Cell_communication_COn_SCZ.eps", width = 7 , height = 2.8)
+
+```
+```{r}
+ptm = Sys.time()
+
+cellchat <- computeNetSimilarityPairwise(cellchat, type = "functional")
+#> Compute signaling network similarity for datasets 1 2
+cellchat <- netEmbedding(cellchat, type = "functional")
+#> Manifold learning of the signaling networks for datasets 1 2
+cellchat <- netClustering(cellchat, type = "functional")
+#> Classification learning of the signaling networks for datasets 1 2
+# Visualization in 2D-space
+netVisual_embeddingPairwise(cellchat, type = "functional", label.size = 3.5)
+#> 2D visualization of signaling networks from datasets 1 2
+```
+```{r}
+cellchat <- computeNetSimilarityPairwise(cellchat, type = "structural")
+cellchat <- netEmbedding(cellchat, type = "structural")
+cellchat <- netClustering(cellchat, type = "structural")
+# Visualization in 2D-space
+netVisual_embeddingPairwise(cellchat, type = "structural", label.size = 3.5)
+netVisual_embeddingPairwiseZoomIn(cellchat, type = "structural", nCol = 2)
+```
+
+```{r}
+rankSimilarity(cellchat, type = "functional")
+#> Compute the distance of signaling networks between datasets 1 2
+```
+
+```{r}
+gg1 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE, color.use = c("#264b26", "#892cc4"))
+gg2 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE, color.use = c("#264b26", "#892cc4"))
+
+gg1 + gg2
+
+ggsave("information_flow_SCZ.png", width = 6, height = 3.5, dpi = 450)
+
+```
+
+```{r}
+
+library(ComplexHeatmap)
+pathway.union <- union(object.list$CON@netP$pathways, object.list$SCZ@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list$CON, pattern = "outgoing", signaling = pathway.union, title = "CON", width = 5, height = 6)
+ht2 = netAnalysis_signalingRole_heatmap(object.list$SCZ, pattern = "outgoing", signaling = pathway.union, title = "SCZ", width = 5, height = 6)
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+
+```{r}
+ht1 = netAnalysis_signalingRole_heatmap(object.list$CON, pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 6, color.heatmap = "GnBu")
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 6, color.heatmap = "GnBu")
+draw(ht1 + ht2, ht_gap = unit(0.5, "cm"))
+```
+```{r}
+
+png("OVERALL_SIGNALLING_CON_SCZ.png", width = 3000, height = 2400, res = 500)
+
+ht1 = netAnalysis_signalingRole_heatmap(object.list$CON, pattern = "all", signaling = pathway.union, title = "CON", width = 4, height = 9, color.heatmap = "OrRd")
+ht2 = netAnalysis_signalingRole_heatmap(object.list$SCZ, pattern = "all", signaling = pathway.union, title = "SCZ", width = 4, height = 9, color.heatmap = "OrRd")
+draw(ht1 + ht2, padding = unit(0.5, "cm"))
+
+dev.off()
+```
+
+
+```{r}
+netVisual_bubble(cellchat, sources.use = 5, targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45, )
+
+```
+
+```{r}
+gg1 <- netVisual_bubble(cellchat, sources.use = 5, targets.use = c(1,2,3,5,6),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in SCZ", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11) 
+
+gg2 <- netVisual_bubble(cellchat, sources.use = 3, targets.use = c(1,2,3,5,6),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in SCZ", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11) 
+
+gg3 <- netVisual_bubble(cellchat, sources.use = 1, targets.use = c(1,2,3,5,6),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in SCZ", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11) 
+
+gg4 <- netVisual_bubble(cellchat, sources.use = 2, targets.use = c(1,2,3,5,6),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in SCZ", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11) 
+
+
+gg1
+
+
+ggsave("L_R_COn_SCZ.png", width = 4 , height = 5)
+ggsave("Aggregated_Cell-Cell_communication_COn_SCZ.eps", width = 7 , height = 2.8)
+```
+
+```{r}
+# define a positive dataset, i.e., the dataset with positive fold change against the other dataset
+pos.dataset = "SCZ"
+# define a char name used for storing the results of differential expression analysis
+features.name = paste0(pos.dataset, ".merged")
+
+# perform differential expression analysis 
+# Of note, compared to CellChat version < v2, CellChat v2 now performs an ultra-fast Wilcoxon test using the presto package, which gives smaller values of logFC. Thus we here set a smaller value of thresh.fc compared to the original one (thresh.fc = 0.1). Users can also provide a vector and dataframe of customized DEGs by modifying the cellchat@var.features$LS.merged and cellchat@var.features$LS.merged.info. 
+
+cellchat <- identifyOverExpressedGenes(cellchat, group.dataset = "datasets", pos.dataset = pos.dataset, features.name = features.name, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.05,thresh.p = 0.05, group.DE.combined = FALSE) 
+#> Use the joint cell labels from the merged CellChat object
+
+# map the results of differential expression analysis onto the inferred cell-cell communications to easily manage/subset the ligand-receptor pairs of interest
+net <- netMappingDEG(cellchat, features.name = features.name, variable.all = TRUE)
+# extract the ligand-receptor pairs with upregulated ligands in LS
+net.up <- subsetCommunication(cellchat, net = net, datasets = "SCZ",ligand.logFC = 0.05, receptor.logFC = NULL)
+# extract the ligand-receptor pairs with upregulated ligands and upregulated receptors in NL, i.e.,downregulated in LS
+net.down <- subsetCommunication(cellchat, net = net, datasets = "CON",ligand.logFC = -0.05, receptor.logFC = NULL)#no significant were found
+
+```
+```{r}
+gene.up <- extractGeneSubsetFromPair(net.up, cellchat)
+pairLR.use.up = net.up[, "interaction_name", drop = F]
+
+gg1 <- netVisual_bubble(cellchat, sources.use = 5, targets.use = c(1,2,3,5,6),  comparison = c(1, 2),  title.name = "", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11,pairLR.use = pairLR.use.up, show.legend = TRUE, color.text.use = FALSE ) 
+
+gg2 <- netVisual_bubble(cellchat, sources.use = 3, targets.use = c(1,2,3,5,6),  comparison = c(1, 2),  title.name = "", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11,pairLR.use = pairLR.use.up, show.legend = FALSE, color.text.use = FALSE) 
+
+gg3 <- netVisual_bubble(cellchat, sources.use = 1, targets.use = c(1,2,3,5,6),  comparison = c(1, 2),  title.name = "", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11,pairLR.use = pairLR.use.up, show.legend = FALSE, color.text.use = FALSE) 
+
+gg4 <- netVisual_bubble(cellchat, sources.use = 2, targets.use = c(1,2,3,5,6),  comparison = c(1, 2),  title.name = "", angle.x = 45, remove.isolate = T, font.size = 8,font.size.title = 10, thresh = 0.01, n.colors = 11,pairLR.use = pairLR.use.up, color.text.use = FALSE ) 
+
+
+
+(gg1+gg2)/(gg3+gg4)+ plot_layout(guides = 'collect')
+
+ggsave("L2_5_WM_L_R_COn_SCZ.png", width = 7.5 , height = 6.5,units = "in", dpi = 450)
+ggsave("L2_5_WM_L_R_COn_SCZ.eps", width = 7.5 , height = 6.5,units = "in", dpi = 450)
+
+(gg2+gg3+gg4)+ plot_layout(guides = 'collect')
+
+ggsave("L2_5_WM_L_R_COn_SCZ_3.png", width = 8.5 , height = 4.5,units = "in", dpi = 450)
+ggsave("L2_5_WM_L_R_COn_SCZ_3.eps", width = 8.5 , height = 4.5,units = "in", dpi = 450)
+
+gg1+ plot_layout(guides = 'collect')
+
+ggsave("L1_L_R_COn_SCZ.png", width = 4 , height = 4.5,units = "in", dpi = 450)
+ggsave("L1_L_R_COn_SCZ.eps", width = 4, height = 4.5,units = "in", dpi = 450)
+
+
+
+```
+```{r}
+netVisual_aggregate(cellchat_CON, signaling = "PTN", layout = "spatial", edge.width.max = 1, alpha.image = 0.1, vertex.weight = "incoming", vertex.size.max = 0.5, vertex.label.cex = 0, sample.use =c("CON_40"), thresh = 0.05, show.legend = FALSE, point.size = 1.5)
+
+ggsave("PTN_signalling_spatial_CON.png", width = 4 , height = 3)
+
+netVisual_aggregate(cellchat_SCZ, signaling = "PTN", layout = "spatial", edge.width.max = 1, alpha.image = 0.1, vertex.weight = "incoming", vertex.size.max = 0.5, vertex.label.cex = 0, sample.use =c("SCZ_47"),signaling.name = "", thresh = 0.05, show.legend = FALSE, point.size = 1.5)
+
+ggsave("PTN_signalling_spatial_SCZ.png", width = 4 , height = 3)
+
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "PTN")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "PTN_PTPRZ1", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PTN_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "PTN_PTPRZ1", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PTN_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "PSAP")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "PSAP_GPR37L1", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PSAP_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "PSAP_GPR37L1", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PSAP_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "PSAP")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "PSAP_GPR37L1", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PSAP_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "PSAP_GPR37L1", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("PSAP_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "CypA")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "PPIA_BSG", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("CypA_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "PPIA_BSG", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("CypA_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "MIF")
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "MIF_CD74_CD44", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("MIF_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "MIF_CD74_CD44", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+netAnalysis_contribution(cellchat_SCZ, signaling = "SPP1")
+
+ggsave("SPP1_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_SCZ, pairLR.use = "SPP1_CD44", sample.use = "SCZ_47", point.size = 1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("SPP1_signalling_mainLRcontributor_spatial_SCZ.png", width = 3.5 , height = 3)
+
+
+spatialFeaturePlot(cellchat_CON, pairLR.use = "SPP1_CD44", sample.use = "CON_40", point.size =1, do.binary = TRUE, cutoff = 0.1, enriched.only = F, color.heatmap = "Reds", direction = 1)
+
+ggsave("SPP1_signalling_mainLRcontributor_spatial_CON.png", width = 3.5 , height = 3)
+
+
+
+
+png("CypA_netVisual_spatial_CON.png", width = 1000, height = 1000, res = 250)
+netVisual_individual(cellchat_CON, signaling = "CypA", pairLR.use = "PPIA_BSG", layout = "circle")
+dev.off()
+
+
+png("CypA_netVisual_spatial_SCZ.png", width = 1000, height = 1000, res = 250)
+netVisual_individual(cellchat_SCZ, signaling = "CypA", pairLR.use = "PPIA_BSG", layout = "circle")
+dev.off()
+
+png("PTN_netVisual_spatial_CON.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_CON, signaling = "PTN", pairLR.use = "PTN_PTPRZ1", layout = "circle")
+dev.off()
+
+png("PTN_netVisual_spatial_SCZ.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_SCZ, signaling = "PTN", pairLR.use = "PTN_PTPRZ1", layout = "circle")
+dev.off()
+
+
+png("PSAP_netVisual_spatial_CON.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_CON, signaling = "PSAP", pairLR.use = "PSAP_GPR37L1", layout = "circle")
+dev.off()
+
+png("PSAP_netVisual_spatial_SCZ.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_SCZ, signaling = "PSAP", pairLR.use = "PSAP_GPR37L1", layout = "circle")
+dev.off()
+
+png("MIF_netVisual_spatial_CON.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_CON, signaling = "MIF", pairLR.use = "MIF_CD74_CD44", layout = "circle")
+dev.off()
+
+png("MIF_netVisual_spatial_SCZ.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_SCZ, signaling = "MIF", pairLR.use = "MIF_CD74_CD44", layout = "circle")
+dev.off()
+
+
+png("SPP1_netVisual_spatial_CON.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_CON, signaling = "SPP1", pairLR.use = "SPP1_CD44", layout = "circle")
+dev.off()
+
+png("SPP1_netVisual_spatial_SCZ.png", width = 1000, height = 1000, res = 250)
+
+netVisual_individual(cellchat_SCZ, signaling = "SPP1", pairLR.use = "SPP1_CD44", layout = "circle")
+dev.off()
+
+
+```
+
